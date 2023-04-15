@@ -26,6 +26,10 @@ device_punch_values_IN = getattr(config, 'device_punch_values_IN', [0,4])
 device_punch_values_OUT = getattr(config, 'device_punch_values_OUT', [1,5])
 ERPNEXT_VERSION = getattr(config, 'ERPNEXT_VERSION', 13)
 
+print('IN',device_punch_values_IN)
+print('OUT',device_punch_values_OUT)
+print('ERPNext_version',ERPNEXT_VERSION)
+
 # possible area of further developemt
     # Real-time events - setup getting events pushed from the machine rather then polling.
         #- this is documented as 'Real-time events' in the ZKProtocol manual.
@@ -143,6 +147,8 @@ def pull_process_and_push_data(device, device_attendance_logs=None):
 def get_all_attendance_from_device(ip, port=4370, timeout=30, device_id=None, clear_from_device_on_fetch=False):
     #  Sample Attendance Logs [{'punch': 255, 'user_id': '22', 'uid': 12349, 'status': 1, 'timestamp': datetime.datetime(2019, 2, 26, 20, 31, 29)},{'punch': 255, 'user_id': '7', 'uid': 7, 'status': 1, 'timestamp': datetime.datetime(2019, 2, 26, 20, 31, 36)}]
     zk = ZK(ip, port=port, timeout=timeout)
+    print('zk',zk)
+    print('device_id', device_id)
     conn = None
     attendances = []
     try:
