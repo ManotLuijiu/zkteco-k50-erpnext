@@ -15,6 +15,11 @@ Python Scripts to poll your biometric attendance system _(BAS)_ for logs and syn
   - [Resources](#resources)
   - [License](#license)
 
+## Modified by Manot L.
+* เพิ่มส่วนของ Notification ผ่าน Telegram หรือ Line
+* เพิ่มวันที่เป็นภาษาไทย เครดิต: [PyThaiNLP](https://github.com/PyThaiNLP/pythainlp/blob/dev/pythainlp/util/strftime.py)
+
+[อ่านรายละเอียด](#manot-modified)
 
 ## Pre-requisites
 * Python 3.6+
@@ -119,3 +124,5 @@ Installing as a Windows service
 ### License
 
 This project is licensed under [GNU General Public License v3.0](LICENSE)
+
+### Manot-Modified

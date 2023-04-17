@@ -11,16 +11,68 @@ from logging.handlers import RotatingFileHandler
 import pickledb
 from zk import ZK, const
 
+# Manot's modified import
+import thai_strftime
+import apprise
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Finish Manot's modified
+
 EMPLOYEE_NOT_FOUND_ERROR_MESSAGE = "No Employee found for the given employee field value"
 EMPLOYEE_INACTIVE_ERROR_MESSAGE = "Transactions cannot be created for an Inactive Employee"
 DUPLICATE_EMPLOYEE_CHECKIN_ERROR_MESSAGE = "This employee already has a log with the same timestamp"
 allowlisted_errors = [EMPLOYEE_NOT_FOUND_ERROR_MESSAGE, EMPLOYEE_INACTIVE_ERROR_MESSAGE, DUPLICATE_EMPLOYEE_CHECKIN_ERROR_MESSAGE]
+
+# Manot's modified code
+# Create an Apprise instance
+apobj = apprise.Apprise()
+
+# Load .env file
+BOT_ID = os.getenv('BOT_ID')
+CHAT_ID = os.getenv('CHAT_ID')
+telegram_url = 'tgram://' + BOT_ID + '/' + CHAT_ID
+
+# tgram://{bot_token}/{chat_id}
+# Assuming our {bot_token} is 123456789:abcdefg_hijklmnop
+# Assuming the {chat_id} belonging to lead2gold is 12315544
+# apprise -vv -t "Test Message Title" -b "Test Message Body" \
+#    tgram://123456789:abcdefg_hijklmnop/12315544/
+   
+apobj.add(telegram_url)
+
+thai_now = str(datetime.datetime.now())
+datetime_obj = datetime.datetime.now()
+# thai_strftime(datetime_obj, "%a %-d %b %y")
+# thaiformat = thai_strftime(thai_now, "%a %-d %b %y")
+# print('Thai Format',thaiformat)
+
+thai_date = thai_strftime.thai_strftime(datetime_obj, "%A %-d %b %y")
+
+print('thai now', thai_now)
+
+for device in config.devices:
+
+    apobj.notify(
+        body='สวัสดี ' +  thai_date + '\n' + 'จาก ZKTeco ' + device['device_id'],
+        title='แค่เข้ามาทักทาย'
+    )
+
+print('BOT_ID',BOT_ID)
+print('CHAT_ID',CHAT_ID)
+print('telegram_url',telegram_url)
+
+# Finish Manot's modified
+
 
 if hasattr(config,'allowed_exceptions'):
     allowlisted_errors_temp = []
     for error_number in config.allowed_exceptions:
         allowlisted_errors_temp.append(allowlisted_errors[error_number-1])
     allowlisted_errors = allowlisted_errors_temp
+    
+    print('Allow Errors',allowlisted_errors)
 
 device_punch_values_IN = getattr(config, 'device_punch_values_IN', [0,4])
 device_punch_values_OUT = getattr(config, 'device_punch_values_OUT', [1,5])
@@ -56,6 +108,16 @@ def main():
                 device_attendance_logs = None
                 info_logger.info("Processing Device: "+ device['device_id'])
                 dump_file = get_dump_file_name_and_directory(device['device_id'], device['ip'])
+                
+                print('Dump File',dump_file)
+                
+                pingstatus = check_ping()
+                
+                apobj.notify(
+                    body='สวัสดี ' +  thai_date + '\n' + 'จาก ZKTeco ' + device['device_id'],
+                    title=pingstatus
+                )
+                
                 if os.path.exists(dump_file):
                     info_logger.error('Device Attendance Dump Found in Log Directory. This can mean the program crashed unexpectedly. Retrying with dumped data.')
                     with open(dump_file, 'r') as f:
@@ -71,11 +133,24 @@ def main():
                 except:
                     error_logger.exception('exception when calling pull_process_and_push_data function for device'+json.dumps(device, default=str))
             if hasattr(config,'shift_type_device_mapping'):
+                
+                print('Shift Type',config.shift_type_device_mapping)
+                
                 update_shift_last_sync_timestamp(config.shift_type_device_mapping)
             status.set('mission_accomplished_timestamp', str(datetime.datetime.now()))
             info_logger.info("Mission Accomplished!")
     except:
         error_logger.exception('exception has occurred in the main function...')
+        
+def check_ping():
+    hostname = "192.168.0.200"
+    response = os.system("ping -c 1 " + hostname)
+    # check the response ...
+    if response == 0:
+        pingstatus = "Network Active"
+    else:
+        pingstatus = "Network Error"
+    return pingstatus
 
 
 def pull_process_and_push_data(device, device_attendance_logs=None):
@@ -86,6 +161,9 @@ def pull_process_and_push_data(device, device_attendance_logs=None):
     device_attendance_logs: fetching from device is skipped if this param is passed. used to restart failed fetches from previous runs.
     """
     attendance_success_log_file = '_'.join(["attendance_success_log", device['device_id']])
+    
+    print('Attendance Success Log File',attendance_success_log_file)
+    
     attendance_failed_log_file = '_'.join(["attendance_failed_log", device['device_id']])
     attendance_success_logger = setup_logger(attendance_success_log_file, '/'.join([config.LOGS_DIRECTORY, attendance_success_log_file])+'.log')
     attendance_failed_logger = setup_logger(attendance_failed_log_file, '/'.join([config.LOGS_DIRECTORY, attendance_failed_log_file])+'.log')
@@ -122,6 +200,9 @@ def pull_process_and_push_data(device, device_attendance_logs=None):
 
     for device_attendance_log in device_attendance_logs[index_of_last+1:]:
         punch_direction = device['punch_direction']
+        
+        print('Punch Direction',punch_direction)
+        
         if punch_direction == 'AUTO':
             if device_attendance_log['punch'] in device_punch_values_OUT:
                 punch_direction = 'OUT'
@@ -198,12 +279,26 @@ def send_to_erpnext(employee_field_value, timestamp, device_id=None, log_type=No
     }
     response = requests.request("POST", url, headers=headers, data=data)
     if response.status_code == 200:
+        
+        print('ERPNext Response',response)
+        
+        apobj.notify(
+            body='สวัสดีจาก ZKTeco/K50',
+            title='ส่งข้อมูลไป ERPNext สำเร็จ' + response.status_code
+        )
+        
         return 200, json.loads(response._content)['message']['name']
     else:
         error_str = _safe_get_error_str(response)
         if EMPLOYEE_NOT_FOUND_ERROR_MESSAGE in error_str:
             error_logger.error('\t'.join(['Error during ERPNext API Call.', str(employee_field_value), str(timestamp.timestamp()), str(device_id), str(log_type), error_str]))
             # TODO: send email?
+            
+            apobj.notify(
+                body='Error',
+                title='Error'
+            )
+            
         else:
             error_logger.error('\t'.join(['Error during ERPNext API Call.', str(employee_field_value), str(timestamp.timestamp()), str(device_id), str(log_type), error_str]))
         return response.status_code, error_str
